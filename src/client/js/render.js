@@ -83,6 +83,13 @@ const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
         // Halo néon autour de la cellule
         graph.shadowColor = cell.borderColor;
         graph.shadowBlur = 25;
+        if (cell.disconnected) {
+            // Joueur déconnecté : cellule fantôme
+            graph.globalAlpha = 0.35;
+        } else if (cell.isProtected) {
+            // Protection au départ : la cellule clignote
+            graph.globalAlpha = 0.45 + 0.35 * Math.abs(Math.sin(Date.now() / 200));
+        }
         if (cellTouchingBorders(cell, borders)) {
             // Asssemble the cell from lines
             drawCellWithLines(cell, borders, graph);
@@ -91,6 +98,15 @@ const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
             drawRoundObject(cell, cell.radius, graph);
         }
         graph.shadowBlur = 0;
+        graph.globalAlpha = 1;
+        if (cell.isProtected && !cell.disconnected) {
+            // Bouclier : anneau cyan autour de la cellule
+            graph.beginPath();
+            graph.arc(cell.x, cell.y, cell.radius + 8, 0, FULL_ANGLE);
+            graph.lineWidth = 3;
+            graph.strokeStyle = 'rgba(42, 212, 255, 0.85)';
+            graph.stroke();
+        }
 
         // Draw the name of the player
         let fontSize = Math.max(cell.radius / 3, 12);
@@ -102,8 +118,9 @@ const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
         graph.textAlign = 'center';
         graph.textBaseline = 'middle';
         graph.font = 'bold ' + fontSize + 'px sans-serif';
-        graph.strokeText(cell.name, cell.x, cell.y);
-        graph.fillText(cell.name, cell.x, cell.y);
+        const label = cell.disconnected ? cell.name + ' (déco)' : cell.name;
+        graph.strokeText(label, cell.x, cell.y);
+        graph.fillText(label, cell.x, cell.y);
 
         // Draw the mass (if enabled)
         if (toggleMassState === 1) {

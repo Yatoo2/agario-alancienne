@@ -22,8 +22,9 @@ const PHASE = {
 
 class Tournament {
     /**
-     * @param settings { rounds, roundSeconds, warmupSeconds, pauseSeconds }
-     * @param hooks    { getRanking(): [{name, mass}], resetArena(): void, onChange(): void }
+     * @param settings { rounds, roundSeconds, warmupSeconds, pauseSeconds, spawnProtectionSeconds }
+     * @param hooks    { getRanking(): [{name, mass}], resetArena(protect): void, onChange(): void,
+     *                   saveSettings(settings): void }
      */
     constructor(settings, hooks) {
         this.settings = settings;
@@ -53,6 +54,44 @@ class Tournament {
 
     isRunning() {
         return this.isWar() && this.phase !== PHASE.IDLE && this.phase !== PHASE.FINISHED;
+    }
+
+    // Pendant un tournoi, un joueur déconnecté reste dans l'arène (mangeable) et peut revenir
+    keepDisconnected() {
+        return this.isRunning();
+    }
+
+    // Durée de protection pour un joueur qui (ré)apparaît maintenant
+    spawnProtectionMs() {
+        return this.isWar() && this.phase === PHASE.LIVE ? this.settings.spawnProtectionSeconds * 1000 : 0;
+    }
+
+    // Modification des réglages depuis la page admin (appliqués à partir de la phase suivante)
+    updateSettings(input) {
+        const limits = {
+            rounds: [1, 20],
+            roundSeconds: [10, 4 * 3600],
+            warmupSeconds: [0, 3600],
+            pauseSeconds: [0, 3600],
+            spawnProtectionSeconds: [0, 60]
+        };
+        const next = Object.assign({}, this.settings);
+        for (const key of Object.keys(limits)) {
+            if (input[key] === undefined || input[key] === null || input[key] === '') continue;
+            const value = Math.round(Number(input[key]));
+            const [min, max] = limits[key];
+            if (!Number.isFinite(value) || value < min || value > max) {
+                return 'Valeur invalide pour ' + key + ' (entre ' + min + ' et ' + max + ').';
+            }
+            next[key] = value;
+        }
+        if (this.isRunning() && next.rounds < this.round) {
+            return 'Le tournoi en est déjà au round ' + this.round + '.';
+        }
+        this.settings = next;
+        this.hooks.saveSettings(next);
+        this.hooks.onChange();
+        return null;
     }
 
     setMode(mode) {
@@ -129,7 +168,7 @@ class Tournament {
         this.round++;
         this.phase = PHASE.WARMUP;
         this.phaseEndsAt = Date.now() + this.settings.warmupSeconds * 1000;
-        this.hooks.resetArena();
+        this.hooks.resetArena(false);
         this.hooks.onChange();
     }
 
@@ -137,8 +176,8 @@ class Tournament {
         switch (this.phase) {
             case PHASE.WARMUP:
                 // Départ : tout le monde repart de la masse de base, positions réparties
-                this.hooks.resetArena();
                 this.phase = PHASE.LIVE;
+                this.hooks.resetArena(true);
                 this.phaseEndsAt = Date.now() + this.settings.roundSeconds * 1000;
                 break;
             case PHASE.LIVE:

@@ -91,7 +91,13 @@ exports.Player = class {
         this.screenWidth = null;
         this.screenHeight = null;
         this.timeToMerge = null;
+        this.protectedUntil = 0;   // protection au départ (mode War)
+        this.disconnected = false; // joueur déconnecté resté dans l'arène (mode War)
         this.setLastHeartbeat();
+    }
+
+    isProtected() {
+        return this.protectedUntil > Date.now();
     }
 
     /* Initalizes things that change with every respawn */
@@ -257,6 +263,8 @@ exports.Player = class {
 
     // Calls `callback` if any of the two cells ate the other.
     static checkForCollisions(playerA, playerB, playerAIndex, playerBIndex, callback) {
+        // Un joueur protégé ne peut ni manger ni être mangé
+        if (playerA.isProtected() || playerB.isProtected()) return;
         for (let cellAIndex in playerA.cells) {
             for (let cellBIndex in playerB.cells) {
                 let cellA = playerA.cells[cellAIndex];

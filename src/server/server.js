@@ -15,6 +15,7 @@ const util = require('./lib/util');
 const mapUtils = require('./map/map');
 const {getPosition} = require("./lib/entityUtils");
 const { Tournament } = require('./tournament');
+const settingsStore = require('./repositories/settings-store');
 
 let map = new mapUtils.Map(config);
 
@@ -45,44 +46,72 @@ const isNameTaken = (name, exceptId) => {
     return false;
 };
 
+// Joueur déconnecté pendant le tournoi, dont la cellule est restée dans l'arène
+const findDisconnected = (name) => {
+    const lower = name.toLowerCase();
+    return map.players.data.find(p => p.disconnected && p.name && p.name.toLowerCase() === lower);
+};
+
+const removeDisconnected = () => {
+    map.players.data = map.players.data.filter(p => !p.disconnected);
+};
+
 // Raison du refus d'un pseudo, ou null s'il est accepté
-const nameRefusal = (name, exceptId) => {
+const nameRefusal = (name, exceptId, ipAddress) => {
     if (!util.validNick(name)) return 'Pseudo invalide.';
     if (tournament.isWar() && name.length === 0) return 'Pseudo obligatoire en mode War.';
     if (tournament.isWar() && isNameTaken(name, exceptId)) return 'Pseudo déjà pris, choisis-en un autre.';
+    const ghost = name.length ? findDisconnected(name) : null;
+    if (ghost && ghost.ipAddress !== ipAddress) {
+        return 'Pseudo réservé : ce joueur s\'est déconnecté et peut revenir depuis son PC.';
+    }
     return null;
 };
 
 app.get('/api/name-check', (req, res) => {
     const name = String(req.query.name || '').substring(0, 25);
-    const reason = nameRefusal(name, null);
+    const reason = nameRefusal(name, null, req.socket.remoteAddress);
     res.json({ ok: reason === null, reason, mode: tournament.mode });
 });
 
-// Classement complet : tous les joueurs connectés, les morts comptent pour 0
+// Classement complet : joueurs connectés (les morts comptent pour 0)
+// + joueurs déconnectés dont la cellule est toujours dans l'arène
 const getRanking = () => {
     const alive = new Map(map.players.data.map(p => [p.id, p]));
-    return Array.from(connectedPlayers.values())
+    const ranking = Array.from(connectedPlayers.values())
         .map(p => ({
             id: p.id,
             name: p.name,
             mass: alive.has(p.id) ? Math.round(alive.get(p.id).massTotal) : 0,
-            alive: alive.has(p.id)
-        }))
-        .sort((a, b) => b.mass - a.mass);
+            alive: alive.has(p.id),
+            disconnected: false
+        }));
+    for (const p of map.players.data) {
+        if (p.disconnected) {
+            ranking.push({ id: p.id, name: p.name, mass: Math.round(p.massTotal), alive: true, disconnected: true });
+        }
+    }
+    return ranking.sort((a, b) => b.mass - a.mass);
 };
 
-// Remet tous les joueurs vivants à la masse de départ, sur des positions réparties
-const resetArena = () => {
+// Début de round : les déconnectés sortent, les autres repartent de la masse de base
+// sur des positions réparties ; protection au départ du live
+const resetArena = (protect) => {
+    removeDisconnected();
+    const protectedUntil = protect ? Date.now() + tournament.spawnProtectionMs() : 0;
     for (const player of map.players.data) {
         player.init(generateSpawnpoint(), config.defaultPlayerMass);
+        player.protectedUntil = protectedUntil;
     }
     map.massFood.data = [];
 };
 
-const tournament = new Tournament(config.war, {
+const warSettings = Object.assign({ spawnProtectionSeconds: 5 }, config.war, settingsStore.load());
+
+const tournament = new Tournament(warSettings, {
     getRanking,
     resetArena,
+    saveSettings: settingsStore.save,
     onChange: () => {
         io.emit('warState', tournament.publicState());
         leaderboardChanged = true;
@@ -123,6 +152,7 @@ function generateSpawnpoint() {
 
 const addPlayer = (socket) => {
     var currentPlayer = new mapUtils.playerUtils.Player(socket.id);
+    currentPlayer.ipAddress = socket.handshake.address;
 
     socket.on('gotit', function (clientPlayerData) {
         console.log('[INFO] Player ' + clientPlayerData.name + ' connecting!');
@@ -131,8 +161,8 @@ const addPlayer = (socket) => {
         if (map.players.findIndexByID(socket.id) > -1) {
             console.log('[INFO] Player ID is already connected, kicking.');
             socket.disconnect();
-        } else if (nameRefusal(String(clientPlayerData.name), socket.id)) {
-            socket.emit('kick', nameRefusal(String(clientPlayerData.name), socket.id));
+        } else if (nameRefusal(String(clientPlayerData.name), socket.id, currentPlayer.ipAddress)) {
+            socket.emit('kick', nameRefusal(String(clientPlayerData.name), socket.id, currentPlayer.ipAddress));
             socket.disconnect();
         } else {
             console.log('[INFO] Player ' + clientPlayerData.name + ' connected!');
@@ -142,6 +172,22 @@ const addPlayer = (socket) => {
             clientPlayerData.name = sanitizedName;
 
             currentPlayer.clientProvidedData(clientPlayerData);
+
+            // Retour d'un joueur déconnecté pendant le tournoi : il récupère sa cellule
+            const ghost = findDisconnected(currentPlayer.name);
+            if (ghost) {
+                currentPlayer.cells = ghost.cells;
+                currentPlayer.massTotal = ghost.massTotal;
+                currentPlayer.x = ghost.x;
+                currentPlayer.y = ghost.y;
+                currentPlayer.hue = ghost.hue;
+                currentPlayer.timeToMerge = ghost.timeToMerge;
+                currentPlayer.protectedUntil = ghost.protectedUntil;
+                map.players.removePlayerByID(ghost.id);
+                console.log('[WAR] ' + currentPlayer.name + ' est revenu et récupère sa cellule (' + Math.round(ghost.massTotal) + ').');
+            } else {
+                currentPlayer.protectedUntil = Date.now() + tournament.spawnProtectionMs();
+            }
             map.players.pushNew(currentPlayer);
             connectedPlayers.set(socket.id, currentPlayer);
             socket.emit('warState', tournament.publicState());
@@ -170,7 +216,13 @@ const addPlayer = (socket) => {
     });
 
     socket.on('disconnect', () => {
-        map.players.removePlayerByID(currentPlayer.id);
+        if (tournament.keepDisconnected() && currentPlayer.name && map.players.findIndexByID(currentPlayer.id) > -1) {
+            // La cellule reste en place (et peut être mangée) en attendant son retour
+            currentPlayer.disconnected = true;
+            currentPlayer.target = { x: 0, y: 0 };
+        } else {
+            map.players.removePlayerByID(currentPlayer.id);
+        }
         connectedPlayers.delete(socket.id);
         console.log('[INFO] User ' + currentPlayer.name + ' has disconnected');
         socket.broadcast.emit('playerDisconnect', { name: currentPlayer.name });
@@ -322,6 +374,7 @@ const addAdmin = (socket) => {
             case 'skip': error = tournament.skip(); break;
             case 'extend': error = tournament.extend(Number(cmd.seconds) || 60); break;
             case 'stop': error = tournament.stop(); break;
+            case 'settings': error = tournament.updateSettings(cmd.settings || {}); break;
             default: error = 'Commande inconnue.';
         }
         console.log('[ADMIN] Commande ' + cmd.action + (error ? ' refusée : ' + error : ' exécutée'));
@@ -331,7 +384,7 @@ const addAdmin = (socket) => {
 }
 
 const tickPlayer = (currentPlayer) => {
-    if (currentPlayer.lastHeartbeat < new Date().getTime() - config.maxHeartbeatInterval) {
+    if (!currentPlayer.disconnected && currentPlayer.lastHeartbeat < new Date().getTime() - config.maxHeartbeatInterval) {
         sockets[currentPlayer.id].emit('kick', 'Last heartbeat received over ' + config.maxHeartbeatInterval + ' ago.');
         sockets[currentPlayer.id].disconnect();
     }
@@ -429,6 +482,7 @@ const calculateLeaderboard = () => {
 
 const gameloop = () => {
     tournament.tick();
+    if (!tournament.keepDisconnected()) removeDisconnected();
 
     if (map.players.data.length > 0) {
         calculateLeaderboard();

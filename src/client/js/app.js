@@ -100,6 +100,11 @@ window.onload = function () {
 
     btn.onclick = tryStartPlayer;
 
+    // Écran géant : /?spectate lance directement le mode spectateur
+    if (/[?&]spectate\b/.test(window.location.search)) {
+        startGame('spectator');
+    }
+
     var settingsMenu = document.getElementById('settingsButton');
     var settings = document.getElementById('settings');
 
@@ -362,6 +367,8 @@ function gameLoop() {
                 cellsToDraw.push({
                     color: color,
                     borderColor: borderColor,
+                    isProtected: users[i].protected,
+                    disconnected: users[i].disconnected,
                     mass: users[i].cells[j].mass,
                     name: users[i].name,
                     radius: users[i].cells[j].radius,

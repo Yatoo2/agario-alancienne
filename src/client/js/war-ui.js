@@ -58,10 +58,10 @@ const renderWarBoard = (list, playerId) => {
         const rank = list.indexOf(p) + 1;
         const classes = [];
         if (p.id == playerId) classes.push('me');
-        if (!p.alive) classes.push('dead');
+        if (!p.alive || p.disconnected) classes.push('dead');
         html += '<li class="' + classes.join(' ') + '">' +
             '<span class="rank">' + rank + '.</span>' +
-            '<span class="name">' + displayName(p.name) + '</span>' +
+            '<span class="name">' + displayName(p.name) + (p.disconnected ? ' (déco)' : '') + '</span>' +
             '<span class="mass">' + p.mass + '</span></li>';
     }
     return html + '</ol>';

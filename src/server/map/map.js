@@ -38,6 +38,7 @@ exports.Map = class {
 
     enumerateWhatPlayersSee(callback) {
         for (let currentPlayer of this.players.data) {
+            if (currentPlayer.disconnected) continue;
             var visibleFood = this.food.data.filter(entity => isVisibleEntity(entity, currentPlayer, false));
             var visibleViruses = this.viruses.data.filter(entity => isVisibleEntity(entity, currentPlayer));
             var visibleMass = this.massFood.data.filter(entity => isVisibleEntity(entity, currentPlayer));
@@ -50,7 +51,9 @@ exports.Map = class {
                     massTotal: Math.round(player.massTotal),
                     hue: player.hue,
                     id: player.id,
-                    name: player.name
+                    name: player.name,
+                    protected: player.isProtected(),
+                    disconnected: player.disconnected
                 };
             }
 
