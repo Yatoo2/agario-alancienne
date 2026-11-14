@@ -1,130 +1,167 @@
-Agar.io Clone
-=============
+<p align="center">
+  <img src="src/client/img/alc_logo.png" alt="À LAN Cienne" width="320">
+</p>
 
-This project was originally created by @huytd. I have since taken ownership of the repository to revive the project.
+<h1 align="center">Agar · À LAN Cienne</h1>
 
-[![GitHub Stars](https://img.shields.io/github/stars/huytd/agar.io-clone.svg)](https://github.com/huytd/agar.io-clone/stargazers)
-[![GitHub Issues](https://img.shields.io/github/issues/huytd/agar.io-clone.svg)](https://github.com/huytd/agar.io-clone/issues)
-[![GitHub Wiki](https://img.shields.io/badge/project-wiki-ff69b4.svg)](https://github.com/huytd/agar.io-clone/wiki/Home)
-[![Live Demo](https://img.shields.io/badge/demo-online-green.svg)](#live-demos)
-[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/huytd/agar.io-clone?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-A simple but powerful Agar.IO clone built with socket.IO and HTML5 canvas on top of NodeJS.
-
-![Image](screenshot.png)
-
-## Live Demos
-An updated live list of demos can be found on the [Live Demos wiki page](https://github.com/owenashurst/agar.io-clone/wiki/Live-Demos).
-
-This is the most up to date version from master. Any merged pull requests will deploy to this URL automatically.
+<p align="center">
+  Le clone d'Agar.io de notre LAN rétro annuelle, aux couleurs néon de l'événement,<br>
+  avec un mode tournoi piloté depuis une page d'administration.
+</p>
 
 ---
 
-## How to Play
-You can check out how to play on our [wiki](https://github.com/owenashurst/agar.io-clone/wiki/How-to-Play).
+Ce dépôt est une version modifiée de [owenashurst/agar.io-clone](https://github.com/owenashurst/agar.io-clone) (Node.js, Socket.IO, canvas HTML5). Le principe du jeu ne change pas : on dirige une cellule, on mange des pastilles et les joueurs plus petits, et on évite les plus gros.
 
-#### Game Basics
-- Move your mouse around the screen to move your cell.
-- Eat food and other players in order to grow your character (food respawns every time a player eats it).
-- A player's **mass** is the number of food particles eaten.
-- **Objective**: Try to get as big as possible and eat other players.
+**Ce qui a été ajouté :**
 
-#### Gameplay Rules
-- Players who haven't eaten yet cannot be eaten as a sort of "grace" period. This invincibility fades once they gain mass.
-- Everytime a player joins the game, **3** food particles will spawn.
-- Everytime a food particle is eaten by a player, **1** new food particle will respawn.
-- The more food you eat, the slower you move to make the game fairer for all.
+- **Thème « À LAN Cienne »** : fond bleu nuit et grille néon, palette rose, violet et cyan, halo lumineux autour des cellules, logo et interface en français.
+- **Deux modes de jeu**, à choisir depuis la page admin :
+  - **FFA** : la partie sans fin habituelle, avec le top 10.
+  - **War** : un tournoi chronométré, avec classement complet, points calculés automatiquement et cumul sur plusieurs rounds.
+- **Page d'administration** (`/admin.html`) : choix du mode, chrono, réglages, classement en direct, résultats et export CSV.
+- **Écran géant** : `/?spectate` affiche toute la carte, le chrono et les résultats, pour un projecteur.
 
----
+## Lancer le serveur
 
-## Latest Changes
-- Game logic is handled by the server
-- The client side is for rendering of the canvas and its items only.
-- Mobile optimisation.
-- Implementation of working viruses.
-- Display player name.
-- Now supporting chat. 
-- Type`-ping` in the chatbox to check your ping, as well as other commands!
+Il faut [Docker](https://www.docker.com/).
 
----
-
-## Installation
-You can simply click one of the buttons below to easily deploy this repo to Bluemix or Heroku:
-
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
-
-Or...
-
->You can check out a more detailed setup tutorial on our [wiki](https://github.com/owenashurst/agar.io-clone/wiki/Setup).
-
-#### Requirements
-To run / install this game, you'll need: 
-- NodeJS with NPM installed.
-- socket.IO.
-- Express.
-
-
-#### Downloading the dependencies
-After cloning the source code from Github, you need to run the following command to download all the dependencies (socket.IO, express, etc.):
-
-```
-npm install
-```
-
-#### Running the Server
-After downloading all the dependencies, you can run the server with the following command:
-
-```
-npm start
-```
-
-The game will then be accessible at `http://localhost:3000`. The default port is `3000`, however this can be changed in config. Further elaboration is available on our [wiki](https://github.com/owenashurst/agar.io-clone/wiki/Setup).
-
-
-### Running the Server with Docker
-If you have [Docker](https://www.docker.com/) installed, after cloning the repository you can run the following commands to start the server and make it acessible at `http://localhost:3000`:
-
-```
+```bash
+git clone https://github.com/Yatoo2/agario-alancienne.git
+cd agario-alancienne
 docker build -t agarioclone_agar .
-docker run -it -p 3000:3000 agarioclone_agar
+
+mkdir -p /chemin/vers/agario-data
+docker run -it -p 3002:3000 \
+  -e ADMIN_PASS=UnMotDePasseSolide \
+  -v /chemin/vers/agario-data:/usr/src/app/bin/server/db \
+  agarioclone_agar
 ```
 
----
+| Adresse | Pour qui |
+|---|---|
+| `http://IP-DU-SERVEUR:3002/` | les joueurs |
+| `http://IP-DU-SERVEUR:3002/admin.html` | l'organisateur |
+| `http://IP-DU-SERVEUR:3002/?spectate` | l'écran géant |
 
-## FAQ
-1. **What is this game?**
+> [!IMPORTANT]
+> - **`ADMIN_PASS`** : sans cette variable, le mot de passe admin est `DEFAULT`. La page admin affiche alors un avertissement.
+> - **Le volume `-v`** garde les résultats des tournois et les réglages. Sans lui, tout est perdu si le conteneur est recréé.
 
-  This is a clone of the game [Agar.IO](http://agar.io/). Someone said that Agar.IO is a clone of an iPad game called Osmos, but we haven't tried it yet. (Cloneception? :P)
-  
-2. **Why would you make a clone of this game?**
+Au démarrage, le conteneur vérifie le code et lance les tests avant de démarrer le serveur. Comptez une dizaine de secondes avant que le jeu réponde.
 
-  Well, while the original game is still online, it is closed-source, and sometimes, it suffers from massive lag. That's why we want to make an open source version of it: for educational purposes, and to let the community add the features that they want, self-host it on their own servers, have fun with friends and more.
-  
-3. **Any plans on adding an online server to compete with Agar.IO or making money out of it?**
+## Jouer
 
-  No. This game belongs to the open-source community, and we have no plans on making money out of it nor competing with anything. But you can of course create your own public server, let us know if you do so and we can add it to our Live Demos list!
-  
-4. **Can I deploy this game to my own server?**
+| Action | Commande |
+|---|---|
+| Se déplacer | la souris (ou les flèches) |
+| Se diviser | `Espace` |
+| Éjecter de la masse | `W` |
+| Discuter | `Entrée` |
+| Classement complet ou compact (mode War) | `Tab` |
 
-  Sure you can! That's what it's made for! ;)
-  
-5. **I don't like HTML5 canvas. Can I write my own game client with this server?**
+Les pseudos acceptent les lettres, les chiffres et `_` (pas d'accents ni d'espaces). En mode War, le pseudo est obligatoire et doit être unique.
 
-  Of course! As long as your client supports WebSockets, you can write your game client in any language/technology, even with Unity3D if you want (there is an open source library for Unity to communicate with WebSockets)!
-  
-6. **Can I use some code of this project on my own?**
+Les virus (contour rose et piquant) font éclater les cellules plus grosses qu'eux.
 
-  Yes you can.
+## Le mode War (tournoi)
 
-## For Developers
- - [Game Architecture](https://github.com/owenashurst/agar.io-clone/wiki/Game-Architecture) to understand how the backend works.
- - If you want to start your own project, I recommend you use [this template](https://github.com/huytd/node-online-game-template). Happy developing!
- -
+Par défaut, un tournoi compte **3 rounds de 15 minutes**. Les phases s'enchaînent automatiquement :
 
-## TODOs
- We have an explicit [TODO](https://github.com/owenashurst/agar.io-clone/wiki/Coming-Features) list for the all the features we aim to develop in the future. Feel free to contribute, we'll be more than grateful.
+```
+pas live (30 s) → LIVE (15 min) → résultats + pause (5 min) → pas live → LIVE → … → vainqueur
+```
 
-## License
->You can check out the full license [here](https://github.com/owenashurst/agar.io-clone/blob/master/LICENSE).
+| Phase | Ce qui se passe |
+|---|---|
+| **Pas live** | Les joueurs se connectent et bougent, mais personne ne peut manger, se diviser ni éjecter. Décompte 5-4-3-2-1 puis « GO ! ». |
+| **LIVE** | Tout le monde repart de la masse de base, à des positions réparties. Le classement affiche **tous** les joueurs connectés. Le bandeau devient rose pendant la dernière minute. |
+| **Fin de round** | Le jeu se fige. Chaque joueur gagne **autant de points que sa masse** à cet instant (un joueur mort marque 0). Le classement du round et le cumul s'affichent chez tout le monde. |
+| **Pause** | Le jeu reste figé jusqu'au round suivant. |
+| **Tournoi terminé** | Le vainqueur, celui qui a le plus de points cumulés, est affiché. |
 
-This project is licensed under the terms of the **MIT** license.
+**Règles d'équité :**
+
+- **Protection au départ** : au « GO ! », et quand un joueur réapparaît pendant un round, sa cellule est protégée pendant quelques secondes (5 s par défaut). Elle ne peut ni manger ni être mangée, et un anneau cyan clignote autour d'elle.
+- **Déconnexion** : pendant un tournoi, la cellule d'un joueur déconnecté reste dans l'arène, immobile et marquée « (déco) ». Elle peut toujours être mangée, donc se déconnecter ne protège pas. Si le joueur revient **depuis le même PC** avec le même pseudo, il récupère sa cellule. Personne d'autre ne peut prendre ce pseudo entre-temps.
+
+### Page d'administration
+
+Connectez-vous sur `/admin.html` avec le mot de passe `ADMIN_PASS`.
+
+- **Mode de jeu** : FFA ou War. Le changement de mode est bloqué pendant un tournoi.
+- **Tournoi** :
+  - **Lancer un nouveau tournoi** : le cumul repart de zéro ; les anciens résultats restent en base.
+  - **Reprendre le dernier** : après un redémarrage du serveur, le tournoi reprend au round suivant avec son cumul.
+  - **Phase suivante** : passe immédiatement à la phase suivante, par exemple pour terminer un round plus tôt.
+  - **+1 min** : prolonge le chrono en cours.
+  - **Arrêter** : le round en cours n'est pas comptabilisé.
+- **Réglages** : nombre de rounds, durée d'un round, durée du « pas live », durée de la pause et durée de la protection. Ils s'appliquent **à partir de la phase suivante** et restent enregistrés après un redémarrage.
+- **Classement en direct**, **dernier round** et **cumul**, avec un **export CSV** de chacun (s'ouvre dans Excel).
+
+## Configuration
+
+Les variables d'environnement se passent avec `-e NOM=valeur` à `docker run`.
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `ADMIN_PASS` | `DEFAULT` | Mot de passe de la page admin et de la commande `-login` |
+| `WAR_ROUNDS` | `3` | Nombre de rounds |
+| `WAR_ROUND_SECONDS` | `900` | Durée d'un round |
+| `WAR_WARMUP_SECONDS` | `30` | Durée du « pas live » |
+| `WAR_PAUSE_SECONDS` | `300` | Durée de la pause entre les rounds |
+
+Les variables `WAR_*` ne servent que de **valeurs de départ**. Dès que des réglages sont enregistrés depuis la page admin, ils prennent le dessus. Ils sont stockés dans `war-settings.json`, dans le volume ; supprimez ce fichier pour revenir aux variables.
+
+Les autres paramètres du jeu (taille de la carte, nombre de pastilles et de virus, vitesse…) se trouvent dans [`config.js`](config.js). Il faut reconstruire l'image après les avoir modifiés.
+
+### Données conservées dans le volume
+
+| Fichier | Contenu |
+|---|---|
+| `db.sqlite3` | Résultats de chaque round (table `war_results`), messages du chat, tentatives de connexion admin échouées |
+| `war-settings.json` | Réglages du mode War enregistrés depuis la page admin |
+
+## Commandes du chat
+
+Tapez-les dans le chat, précédées d'un tiret.
+
+| Commande | Effet |
+|---|---|
+| `-help` | Liste des commandes |
+| `-ping` | Affiche la latence |
+| `-mass` / `-border` | Affiche la masse / les bords de la carte |
+| `-dark` | Bascule entre le fond néon et un fond noir |
+| `-login <mot de passe>` | Se connecter comme admin en jeu |
+| `-kick <pseudo> [raison]` | Expulser un joueur (admin) |
+
+## Développement
+
+```bash
+npm install
+npm run watch   # serveur + reconstruction automatique sur http://localhost:3000
+npm test        # vérification du code + tests
+```
+
+| Fichier | Rôle |
+|---|---|
+| `src/server/tournament.js` | Déroulement des modes FFA et War (phases, chrono, points, cumul) |
+| `src/server/server.js` | Serveur de jeu, connexion de la page admin, pseudos uniques, joueurs déconnectés |
+| `src/client/js/war-ui.js` | Bandeau du chrono, classement complet, écran de résultats |
+| `src/client/admin.html` | Page d'administration (autonome, sans build) |
+| `src/client/css/main.css` | Thème « À LAN Cienne » |
+
+### Récupérer les mises à jour du projet d'origine
+
+```bash
+git remote add upstream https://github.com/owenashurst/agar.io-clone.git   # une seule fois
+git fetch upstream
+git merge upstream/master
+```
+
+## Crédits et licence
+
+- Jeu d'origine : [huytd/agar.io-clone](https://github.com/huytd/agar.io-clone), repris par [owenashurst/agar.io-clone](https://github.com/owenashurst/agar.io-clone) et ses contributeurs.
+- Adaptation « À LAN Cienne » : thème, modes FFA/War et administration.
+
+Distribué sous licence **MIT**, comme le projet d'origine. Voir [LICENSE](LICENSE).
