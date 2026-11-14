@@ -20,6 +20,14 @@ module.exports = {
     gameWidth: 5000,
     gameHeight: 5000,
     adminPass: "DEFAULT",
+    // Mode War (tournoi) : durées en secondes
+    // (modifiables sans rebuild via les variables d'environnement WAR_*)
+    war: {
+        rounds: Number(process.env.WAR_ROUNDS) || 3,
+        roundSeconds: Number(process.env.WAR_ROUND_SECONDS) || 15 * 60,
+        warmupSeconds: Number(process.env.WAR_WARMUP_SECONDS) || 30,
+        pauseSeconds: Number(process.env.WAR_PAUSE_SECONDS) || 5 * 60
+    },
     gameMass: 20000,
     maxFood: 1000,
     maxVirus: 50,

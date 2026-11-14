@@ -14,11 +14,20 @@ const config = require('../../config');
 const util = require('./lib/util');
 const mapUtils = require('./map/map');
 const {getPosition} = require("./lib/entityUtils");
+const { Tournament } = require('./tournament');
 
 let map = new mapUtils.Map(config);
 
 let sockets = {};
 let spectators = [];
+// Tous les joueurs connectés avec un pseudo validé, vivants ou morts (pour le classement War)
+let connectedPlayers = new Map();
+
+// Mot de passe admin : variable d'environnement ADMIN_PASS prioritaire sur config.js
+const ADMIN_PASS = process.env.ADMIN_PASS || config.adminPass;
+if (ADMIN_PASS === 'DEFAULT') {
+    console.warn('[ADMIN] Mot de passe admin par défaut ! Lance le conteneur avec -e ADMIN_PASS=...');
+}
 const INIT_MASS_LOG = util.mathLog(config.defaultPlayerMass, config.slowBase);
 
 let leaderboard = [];
@@ -27,6 +36,66 @@ let leaderboardChanged = false;
 const Vector = SAT.Vector;
 
 app.use(express.static(__dirname + '/../client'));
+
+const isNameTaken = (name, exceptId) => {
+    const lower = name.toLowerCase();
+    for (const [id, player] of connectedPlayers) {
+        if (id !== exceptId && player.name && player.name.toLowerCase() === lower) return true;
+    }
+    return false;
+};
+
+// Raison du refus d'un pseudo, ou null s'il est accepté
+const nameRefusal = (name, exceptId) => {
+    if (!util.validNick(name)) return 'Pseudo invalide.';
+    if (tournament.isWar() && name.length === 0) return 'Pseudo obligatoire en mode War.';
+    if (tournament.isWar() && isNameTaken(name, exceptId)) return 'Pseudo déjà pris, choisis-en un autre.';
+    return null;
+};
+
+app.get('/api/name-check', (req, res) => {
+    const name = String(req.query.name || '').substring(0, 25);
+    const reason = nameRefusal(name, null);
+    res.json({ ok: reason === null, reason, mode: tournament.mode });
+});
+
+// Classement complet : tous les joueurs connectés, les morts comptent pour 0
+const getRanking = () => {
+    const alive = new Map(map.players.data.map(p => [p.id, p]));
+    return Array.from(connectedPlayers.values())
+        .map(p => ({
+            id: p.id,
+            name: p.name,
+            mass: alive.has(p.id) ? Math.round(alive.get(p.id).massTotal) : 0,
+            alive: alive.has(p.id)
+        }))
+        .sort((a, b) => b.mass - a.mass);
+};
+
+// Remet tous les joueurs vivants à la masse de départ, sur des positions réparties
+const resetArena = () => {
+    for (const player of map.players.data) {
+        player.init(generateSpawnpoint(), config.defaultPlayerMass);
+    }
+    map.massFood.data = [];
+};
+
+const tournament = new Tournament(config.war, {
+    getRanking,
+    resetArena,
+    onChange: () => {
+        io.emit('warState', tournament.publicState());
+        leaderboardChanged = true;
+        sendAdminState();
+    }
+});
+
+const sendAdminState = () => {
+    io.to('admins').emit('adminState', Object.assign(tournament.adminState(), {
+        ranking: getRanking(),
+        defaultPassword: ADMIN_PASS === 'DEFAULT'
+    }));
+};
 
 io.on('connection', function (socket) {
     let type = socket.handshake.query.type;
@@ -37,6 +106,9 @@ io.on('connection', function (socket) {
             break;
         case 'spectator':
             addSpectator(socket);
+            break;
+        case 'admin':
+            addAdmin(socket);
             break;
         default:
             console.log('Unknown user type, not doing anything.');
@@ -59,8 +131,8 @@ const addPlayer = (socket) => {
         if (map.players.findIndexByID(socket.id) > -1) {
             console.log('[INFO] Player ID is already connected, kicking.');
             socket.disconnect();
-        } else if (!util.validNick(clientPlayerData.name)) {
-            socket.emit('kick', 'Invalid username.');
+        } else if (nameRefusal(String(clientPlayerData.name), socket.id)) {
+            socket.emit('kick', nameRefusal(String(clientPlayerData.name), socket.id));
             socket.disconnect();
         } else {
             console.log('[INFO] Player ' + clientPlayerData.name + ' connected!');
@@ -71,6 +143,8 @@ const addPlayer = (socket) => {
 
             currentPlayer.clientProvidedData(clientPlayerData);
             map.players.pushNew(currentPlayer);
+            connectedPlayers.set(socket.id, currentPlayer);
+            socket.emit('warState', tournament.publicState());
             io.emit('playerJoin', { name: currentPlayer.name });
             console.log('Total players: ' + map.players.data.length);
         }
@@ -97,6 +171,7 @@ const addPlayer = (socket) => {
 
     socket.on('disconnect', () => {
         map.players.removePlayerByID(currentPlayer.id);
+        connectedPlayers.delete(socket.id);
         console.log('[INFO] User ' + currentPlayer.name + ' has disconnected');
         socket.broadcast.emit('playerDisconnect', { name: currentPlayer.name });
     });
@@ -120,7 +195,7 @@ const addPlayer = (socket) => {
 
     socket.on('pass', async (data) => {
         const password = data[0];
-        if (password === config.adminPass) {
+        if (password === ADMIN_PASS) {
             console.log('[ADMIN] ' + currentPlayer.name + ' just logged in as an admin.');
             socket.emit('serverMSG', 'Welcome back ' + currentPlayer.name);
             socket.broadcast.emit('serverMSG', currentPlayer.name + ' just logged in as an admin.');
@@ -183,6 +258,7 @@ const addPlayer = (socket) => {
     });
 
     socket.on('1', function () {
+        if (!tournament.canEat()) return;
         // Fire food.
         const minCellMass = config.defaultPlayerMass + config.fireFood;
         for (let i = 0; i < currentPlayer.cells.length; i++) {
@@ -194,6 +270,7 @@ const addPlayer = (socket) => {
     });
 
     socket.on('2', () => {
+        if (!tournament.canEat()) return;
         currentPlayer.userSplit(config.limitSplit, config.defaultPlayerMass);
     });
 }
@@ -209,6 +286,48 @@ const addSpectator = (socket) => {
         width: config.gameWidth,
         height: config.gameHeight
     });
+    socket.emit('warState', tournament.publicState());
+    socket.on('disconnect', () => {
+        spectators = spectators.filter(id => id !== socket.id);
+        delete sockets[socket.id];
+    });
+}
+
+// Page /admin.html : pilotage des modes et du tournoi
+const addAdmin = (socket) => {
+    let authorized = false;
+
+    socket.on('adminAuth', (password) => {
+        if (password === ADMIN_PASS) {
+            authorized = true;
+            socket.join('admins');
+            socket.emit('adminAuthOk');
+            console.log('[ADMIN] Connexion à la page admin depuis ' + socket.handshake.address);
+            sendAdminState();
+        } else {
+            socket.emit('adminAuthFail');
+            console.log('[ADMIN] Mot de passe incorrect sur la page admin depuis ' + socket.handshake.address);
+            loggingRepositry.logFailedLoginAttempt('admin-page', socket.handshake.address)
+                .catch((err) => console.error("Error when attempting to log failed login attempt", err));
+        }
+    });
+
+    socket.on('adminCmd', async (cmd) => {
+        if (!authorized || !cmd) return;
+        let error = null;
+        switch (cmd.action) {
+            case 'mode': error = tournament.setMode(cmd.mode); break;
+            case 'start': error = tournament.start(); break;
+            case 'resume': error = await tournament.resume(); break;
+            case 'skip': error = tournament.skip(); break;
+            case 'extend': error = tournament.extend(Number(cmd.seconds) || 60); break;
+            case 'stop': error = tournament.stop(); break;
+            default: error = 'Commande inconnue.';
+        }
+        console.log('[ADMIN] Commande ' + cmd.action + (error ? ' refusée : ' + error : ' exécutée'));
+        socket.emit('adminResult', { action: cmd.action, error });
+        sendAdminState();
+    });
 }
 
 const tickPlayer = (currentPlayer) => {
@@ -218,6 +337,9 @@ const tickPlayer = (currentPlayer) => {
     }
 
     currentPlayer.move(config.slowBase, config.gameWidth, config.gameHeight, INIT_MASS_LOG);
+
+    // Phase « pas live » du mode War : on bouge, mais on ne mange rien
+    if (!tournament.canEat()) return;
 
     const isEntityInsideCircle = (point, circle) => {
         return SAT.pointInCircle(new Vector(point.x, point.y), circle);
@@ -264,8 +386,13 @@ const tickPlayer = (currentPlayer) => {
 };
 
 const tickGame = () => {
+    // Fin de round / pause : le monde est figé
+    if (tournament.isFrozen()) return;
+
     map.players.data.forEach(tickPlayer);
     map.massFood.move(config.gameWidth, config.gameHeight);
+
+    if (!tournament.canEat()) return;
 
     map.players.handleCollisions(function (gotEaten, eater) {
         const cellGotEaten = map.players.getCell(gotEaten.playerIndex, gotEaten.cellIndex);
@@ -301,10 +428,21 @@ const calculateLeaderboard = () => {
 }
 
 const gameloop = () => {
+    tournament.tick();
+
     if (map.players.data.length > 0) {
         calculateLeaderboard();
-        map.players.shrinkCells(config.massLossRate, config.defaultPlayerMass, config.minMassLoss);
+        if (tournament.canEat() && !tournament.isFrozen()) {
+            map.players.shrinkCells(config.massLossRate, config.defaultPlayerMass, config.minMassLoss);
+        }
     }
+
+    // Mode War : chrono et classement complet envoyés à tous chaque seconde
+    if (tournament.isWar()) {
+        io.emit('warState', tournament.publicState());
+        io.emit('leaderboard', { mode: 'war', players: connectedPlayers.size, leaderboard: getRanking() });
+    }
+    sendAdminState();
 
     map.balanceMass(config.foodMass, config.gameMass, config.maxFood, config.maxVirus);
 };
@@ -313,7 +451,7 @@ const sendUpdates = () => {
     spectators.forEach(updateSpectator);
     map.enumerateWhatPlayersSee(function (playerData, visiblePlayers, visibleFood, visibleMass, visibleViruses) {
         sockets[playerData.id].emit('serverTellPlayerMove', playerData, visiblePlayers, visibleFood, visibleMass, visibleViruses);
-        if (leaderboardChanged) {
+        if (leaderboardChanged && !tournament.isWar()) {
             sendLeaderboard(sockets[playerData.id]);
         }
     });
@@ -323,6 +461,7 @@ const sendUpdates = () => {
 
 const sendLeaderboard = (socket) => {
     socket.emit('leaderboard', {
+        mode: 'ffa',
         players: map.players.data.length,
         leaderboard
     });
@@ -338,7 +477,7 @@ const updateSpectator = (socketID) => {
         name: ''
     };
     sockets[socketID].emit('serverTellPlayerMove', playerData, map.players.data, map.food.data, map.massFood.data, map.viruses.data);
-    if (leaderboardChanged) {
+    if (leaderboardChanged && !tournament.isWar()) {
         sendLeaderboard(sockets[socketID]);
     }
 }

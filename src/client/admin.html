@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Agar — À LAN Cienne</title>
+    <style>
+        :root {
+            --bg: #071022;
+            --panel: #0b142a;
+            --text: #e9edf7;
+            --muted: #aeb7cc;
+            --pink: #ff2aa1;
+            --violet: #7c4dff;
+            --cyan: #2ad4ff;
+            --green: #00e5a0;
+            --stroke: rgba(255, 255, 255, .08);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(60% 80% at 70% 0%, rgba(124, 77, 255, .22), transparent 55%),
+                radial-gradient(70% 90% at 20% 20%, rgba(255, 42, 161, .14), transparent 60%),
+                var(--bg);
+            background-attachment: fixed;
+        }
+        header {
+            display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+            max-width: 1200px; margin: 0 auto; padding: 18px 16px;
+        }
+        header img { height: 52px; filter: drop-shadow(0 10px 30px rgba(0, 0, 0, .55)); }
+        header h1 { margin: 0; font-size: 20px; letter-spacing: .08em; text-transform: uppercase; }
+        header h1 span { color: var(--pink); }
+        main { max-width: 1200px; margin: 0 auto; padding: 0 16px 40px; }
+        .card {
+            background: rgba(11, 20, 42, .85);
+            border: 1px solid var(--stroke);
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .4);
+        }
+        .grid { display: grid; gap: 16px; }
+        .top { grid-template-columns: 1fr 1fr; }
+        .tables { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 16px; }
+        @media (max-width: 1000px) { .tables { grid-template-columns: 1fr; } }
+        @media (max-width: 760px) { .top { grid-template-columns: 1fr; } }
+        h2 {
+            margin: 0 0 12px; font-size: 13px; letter-spacing: .15em; text-transform: uppercase; color: var(--pink);
+            display: flex; justify-content: space-between; align-items: center; gap: 8px;
+        }
+        h2 small { color: var(--muted); letter-spacing: 0; text-transform: none; font-size: 12px; font-weight: 500; }
+        button {
+            font: inherit; font-weight: 700; font-size: 14px;
+            padding: 10px 16px; border-radius: 10px; cursor: pointer;
+            color: #fff; background: rgba(255, 255, 255, .07);
+            border: 1px solid rgba(255, 255, 255, .14);
+        }
+        button:hover { background: rgba(255, 255, 255, .13); }
+        button.primary { border: 0; background: linear-gradient(135deg, var(--pink), var(--violet)); }
+        button.danger { border-color: rgba(255, 90, 90, .5); color: #ff9b9b; }
+        button.small { padding: 6px 10px; font-size: 12px; }
+        button:disabled { opacity: .35; cursor: not-allowed; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .segmented { display: inline-flex; border: 1px solid rgba(255, 255, 255, .14); border-radius: 12px; padding: 3px; gap: 3px; }
+        .segmented button { border: 0; background: transparent; padding: 10px 22px; }
+        .segmented button.active { background: linear-gradient(135deg, var(--pink), var(--violet)); }
+        .phase { font-size: 15px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .phase.live { color: var(--pink); }
+        .phase.warmup { color: var(--cyan); }
+        .phase.pause, .phase.finished { color: #c7b3ff; }
+        .timer { font-size: 64px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.1; margin: 4px 0 14px; }
+        .muted { color: var(--muted); font-size: 13px; }
+        .help { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
+        .table-wrap { max-height: 65vh; overflow: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--stroke); font-variant-numeric: tabular-nums; }
+        th:nth-child(2), td:nth-child(2) { text-align: left; }
+        th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; }
+        tr.dead td { opacity: .45; }
+        tbody tr:nth-child(1) td { color: #ffd34d; font-weight: 800; }
+        tbody tr:nth-child(2) td { color: #dfe6f5; font-weight: 700; }
+        tbody tr:nth-child(3) td { color: #ff9d5c; font-weight: 700; }
+        td.total { color: var(--pink); font-weight: 800; }
+        .empty td { text-align: center !important; color: var(--muted) !important; font-weight: 400 !important; }
+        .alert {
+            margin-bottom: 16px; padding: 12px 16px; border-radius: 12px;
+            background: rgba(255, 42, 42, .12); border: 1px solid rgba(255, 42, 42, .4); color: #ffb3b3;
+        }
+        #toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 10px 18px; border-radius: 999px; background: var(--panel);
+            border: 1px solid rgba(255, 42, 161, .5); opacity: 0; transition: opacity .3s; pointer-events: none;
+        }
+        #toast.show { opacity: 1; }
+        #login { max-width: 380px; margin: 60px auto; text-align: center; }
+        #login input {
+            width: 100%; padding: 12px; margin: 12px 0; border-radius: 10px; font-size: 16px; text-align: center;
+            color: var(--text); background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .14); outline: none;
+        }
+        #login input:focus { border-color: var(--pink); }
+        .dot { display: inline-block; width: 9px; height: 9px; border-radius: 999px; margin-right: 6px; background: #ff5a5a; }
+        .dot.on { background: var(--green); }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+<header>
+    <img src="img/alc_logo.png" alt="À LAN Cienne">
+    <h1>Agar · <span>Admin</span></h1>
+    <span class="muted" style="margin-left:auto"><span id="conn" class="dot"></span><span id="connText">Déconnecté</span></span>
+</header>
+
+<main>
+    <section id="login" class="card">
+        <h2 style="justify-content:center">Accès organisateur</h2>
+        <form id="loginForm">
+            <input id="password" type="password" placeholder="Mot de passe admin" autocomplete="current-password" autofocus>
+            <button class="primary" type="submit" style="width:100%">Se connecter</button>
+        </form>
+        <p id="loginError" class="muted hidden" style="color:#ff9b9b">Mot de passe incorrect.</p>
+    </section>
+
+    <section id="dashboard" class="hidden">
+        <div id="defaultPassAlert" class="alert hidden">
+            Le mot de passe admin est encore « DEFAULT ». Relance le conteneur avec <code>-e ADMIN_PASS=…</code>.
+        </div>
+
+        <div class="grid top">
+            <div class="card">
+                <h2>Mode de jeu</h2>
+                <div class="segmented">
+                    <button id="modeFfa" data-mode="ffa">FFA</button>
+                    <button id="modeWar" data-mode="war">War</button>
+                </div>
+                <p class="help" id="modeHelp"></p>
+            </div>
+
+            <div class="card">
+                <h2>Tournoi <small id="tournamentInfo"></small></h2>
+                <div class="phase" id="phase">—</div>
+                <div class="timer" id="timer">–:––</div>
+                <div class="row">
+                    <button id="btnStart" class="primary">Lancer un nouveau tournoi</button>
+                    <button id="btnResume">Reprendre le dernier</button>
+                    <button id="btnSkip">Phase suivante ⏭</button>
+                    <button id="btnExtend">+1 min</button>
+                    <button id="btnStop" class="danger">Arrêter</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid tables">
+            <div class="card">
+                <h2>Classement en direct <small id="liveCount"></small></h2>
+                <div class="table-wrap"><table>
+                    <thead><tr><th>#</th><th>Joueur</th><th>Masse</th></tr></thead>
+                    <tbody id="liveBody"></tbody>
+                </table></div>
+            </div>
+            <div class="card">
+                <h2><span id="roundTitle">Dernier round</span> <button class="small" id="csvRound">CSV</button></h2>
+                <div class="table-wrap"><table>
+                    <thead><tr><th>#</th><th>Joueur</th><th>Points</th></tr></thead>
+                    <tbody id="roundBody"></tbody>
+                </table></div>
+            </div>
+            <div class="card">
+                <h2>Cumul <button class="small" id="csvStandings">CSV</button></h2>
+                <div class="table-wrap"><table>
+                    <thead id="standingsHead"></thead>
+                    <tbody id="standingsBody"></tbody>
+                </table></div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function () {
+    var $ = function (id) { return document.getElementById(id); };
+    var socket = io({ query: { type: 'admin' } });
+    var current = null;
+    var endsAt = null;
+    var password = null;
+
+    var store = {
+        get: function () { try { return sessionStorage.getItem('agarAdminPass'); } catch (e) { return null; } },
+        set: function (v) { try { sessionStorage.setItem('agarAdminPass', v); } catch (e) { /* ignore */ } },
+        clear: function () { try { sessionStorage.removeItem('agarAdminPass'); } catch (e) { /* ignore */ } }
+    };
+
+    var escapeHtml = function (text) {
+        return String(text).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    };
+    var formatTime = function (ms) {
+        var total = Math.max(0, Math.ceil(ms / 1000));
+        var m = Math.floor(total / 60), s = total % 60;
+        return m + ':' + (s < 10 ? '0' : '') + s;
+    };
+    var toast = function (msg) {
+        var t = $('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(toast.timer);
+        toast.timer = setTimeout(function () { t.classList.remove('show'); }, 3500);
+    };
+
+    var PHASES = {
+        idle: 'En attente du lancement',
+        warmup: 'Pas live — les joueurs se connectent',
+        live: 'LIVE',
+        pause: 'Pause entre les rounds',
+        finished: 'Tournoi terminé'
+    };
+
+    // ── Connexion ─────────────────────────────────────────────────────────
+    var auth = function (pass) {
+        password = pass;
+        socket.emit('adminAuth', pass);
+    };
+    socket.on('connect', function () {
+        $('conn').classList.add('on');
+        $('connText').textContent = 'Connecté';
+        var saved = password || store.get();
+        if (saved) auth(saved);
+    });
+    socket.on('disconnect', function () {
+        $('conn').classList.remove('on');
+        $('connText').textContent = 'Déconnecté';
+    });
+    $('loginForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        auth($('password').value);
+    });
+    socket.on('adminAuthOk', function () {
+        store.set(password);
+        $('login').classList.add('hidden');
+        $('dashboard').classList.remove('hidden');
+    });
+    socket.on('adminAuthFail', function () {
+        store.clear();
+        password = null;
+        $('login').classList.remove('hidden');
+        $('dashboard').classList.add('hidden');
+        $('loginError').classList.remove('hidden');
+    });
+    socket.on('adminResult', function (r) {
+        toast(r.error ? '⚠ ' + r.error : 'OK');
+    });
+
+    // ── Commandes ─────────────────────────────────────────────────────────
+    var cmd = function (action, extra, confirmText) {
+        if (confirmText && !window.confirm(confirmText)) return;
+        var payload = Object.assign({ action: action }, extra || {});
+        socket.emit('adminCmd', payload);
+    };
+    $('modeFfa').onclick = function () { cmd('mode', { mode: 'ffa' }); };
+    $('modeWar').onclick = function () { cmd('mode', { mode: 'war' }); };
+    $('btnStart').onclick = function () {
+        cmd('start', null, 'Lancer un NOUVEAU tournoi ? Le cumul repart de zéro (les anciens résultats restent en base).');
+    };
+    $('btnResume').onclick = function () {
+        cmd('resume', null, 'Reprendre le dernier tournoi enregistré au round suivant ?');
+    };
+    $('btnSkip').onclick = function () {
+        var msg = current && current.phase === 'live'
+            ? 'Terminer le round MAINTENANT ? Le classement actuel sera enregistré.'
+            : 'Passer à la phase suivante ?';
+        cmd('skip', null, msg);
+    };
+    $('btnExtend').onclick = function () { cmd('extend', { seconds: 60 }); };
+    $('btnStop').onclick = function () {
+        cmd('stop', null, 'Arrêter le tournoi ? Le round en cours ne sera PAS comptabilisé.');
+    };
+
+    // ── Export CSV (séparateur ; pour Excel en français) ─────────────────
+    var downloadCsv = function (filename, rows) {
+        var csv = rows.map(function (r) {
+            return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(';');
+        }).join('\r\n');
+        var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    };
+    $('csvRound').onclick = function () {
+        if (!current || !current.lastRoundResults.length) return toast('Aucun round terminé.');
+        downloadCsv('agar-round-' + current.round + '.csv',
+            [['Rang', 'Joueur', 'Points']].concat(current.lastRoundResults.map(function (r) {
+                return [r.rank, r.name, r.mass];
+            })));
+    };
+    $('csvStandings').onclick = function () {
+        if (!current || !current.standings.length) return toast('Aucun résultat.');
+        var head = ['Rang', 'Joueur'];
+        for (var i = 1; i <= current.rounds; i++) head.push('Round ' + i);
+        head.push('Total');
+        downloadCsv('agar-tournoi-cumul.csv', [head].concat(current.standings.map(function (s, i) {
+            return [i + 1, s.name].concat(s.rounds, [s.total]);
+        })));
+    };
+
+    // ── Affichage ─────────────────────────────────────────────────────────
+    var rowsHtml = function (rows, cols) {
+        if (!rows.length) return '<tr class="empty"><td colspan="' + cols + '">—</td></tr>';
+        return rows.join('');
+    };
+
+    socket.on('adminState', function (s) {
+        current = s;
+        endsAt = s.remainingMs === null ? null : Date.now() + s.remainingMs;
+        var war = s.mode === 'war';
+        var running = war && ['warmup', 'live', 'pause'].indexOf(s.phase) > -1;
+
+        $('defaultPassAlert').classList.toggle('hidden', !s.defaultPassword);
+        $('modeFfa').classList.toggle('active', !war);
+        $('modeWar').classList.toggle('active', war);
+        $('modeFfa').disabled = $('modeWar').disabled = running;
+        $('modeHelp').textContent = war
+            ? 'War : classement complet, rounds de ' + (s.settings.roundSeconds / 60) + ' min, ' +
+              s.settings.warmupSeconds + ' s « pas live » avant chaque round, pause de ' +
+              (s.settings.pauseSeconds / 60) + ' min. Points = masse en fin de round. Pseudos uniques.'
+            : 'FFA : partie sans fin, top 10, comportement classique.';
+
+        $('btnStart').disabled = !war || running;
+        $('btnResume').disabled = !war || running;
+        $('btnSkip').disabled = !running;
+        $('btnExtend').disabled = !running;
+        $('btnStop').disabled = !running;
+
+        $('phase').className = 'phase ' + s.phase;
+        $('phase').textContent = war
+            ? (s.round ? 'Round ' + s.round + '/' + s.rounds + ' · ' : '') + PHASES[s.phase]
+            : 'Mode FFA';
+        $('tournamentInfo').textContent = s.tournamentId
+            ? 'démarré le ' + new Date(s.tournamentId).toLocaleString('fr-BE') : '';
+
+        $('liveCount').textContent = s.ranking.length + ' joueurs';
+        $('liveBody').innerHTML = rowsHtml(s.ranking.map(function (p, i) {
+            return '<tr class="' + (p.alive ? '' : 'dead') + '"><td>' + (i + 1) + '</td><td>' +
+                escapeHtml(p.name || 'Cellule anonyme') + '</td><td>' + p.mass + '</td></tr>';
+        }), 3);
+
+        $('roundTitle').textContent = s.lastRoundResults.length && s.round
+            ? 'Round ' + (s.phase === 'warmup' || s.phase === 'live' ? s.round - 1 : s.round) : 'Dernier round';
+        $('roundBody').innerHTML = rowsHtml(s.lastRoundResults.map(function (r) {
+            return '<tr><td>' + r.rank + '</td><td>' + escapeHtml(r.name) + '</td><td>' + r.mass + '</td></tr>';
+        }), 3);
+
+        var head = '<tr><th>#</th><th>Joueur</th>';
+        for (var i = 1; i <= s.rounds; i++) head += '<th>R' + i + '</th>';
+        $('standingsHead').innerHTML = head + '<th>Total</th></tr>';
+        $('standingsBody').innerHTML = rowsHtml(s.standings.map(function (st, i) {
+            return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(st.name) + '</td>' +
+                st.rounds.map(function (m) { return '<td>' + m + '</td>'; }).join('') +
+                '<td class="total">' + st.total + '</td></tr>';
+        }), s.rounds + 3);
+    });
+
+    setInterval(function () {
+        $('timer').textContent = endsAt ? formatTime(endsAt - Date.now()) : '–:––';
+    }, 200);
+})();
+</script>
+</body>
+</html>

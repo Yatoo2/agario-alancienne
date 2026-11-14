@@ -3,6 +3,7 @@ var render = require('./render');
 var ChatClient = require('./chat-client');
 var Canvas = require('./canvas');
 var global = require('./global');
+var warUI = require('./war-ui');
 
 var playerNameInput = document.getElementById('playerNameInput');
 var socket;
@@ -51,22 +52,53 @@ window.onload = function () {
 
     var btn = document.getElementById('startButton'),
         btnS = document.getElementById('spectateButton'),
-        nickErrorText = document.querySelector('#startMenu .input-error');
+        nickErrorText = document.querySelector('#startMenu .input-error'),
+        defaultNickError = nickErrorText.textContent;
+
+    warUI.init({
+        onPhaseChange: function (w) {
+            var messages = {
+                warmup: 'Round ' + w.round + '/' + w.rounds + ' : PAS LIVE, préparez-vous !',
+                live: 'Round ' + w.round + ' : LIVE ! Bonne chance.',
+                pause: 'Fin du round ' + w.round + ' ! Les points sont enregistrés.',
+                finished: 'Tournoi terminé !',
+                idle: w.mode === 'war' ? 'Mode War activé.' : 'Mode FFA activé.'
+            };
+            if (window.chat && messages[w.phase]) window.chat.addSystemLine(messages[w.phase]);
+        }
+    });
+
+    var showNickError = function (message) {
+        nickErrorText.textContent = message || defaultNickError;
+        nickErrorText.style.opacity = 1;
+    };
+
+    // Vérifie le pseudo localement puis auprès du serveur (pseudo unique en mode War)
+    var tryStartPlayer = function () {
+        if (!validNick()) {
+            showNickError();
+            return;
+        }
+        fetch('/api/name-check?name=' + encodeURIComponent(playerNameInput.value))
+            .then(function (res) { return res.json(); })
+            .then(function (check) {
+                if (check.ok) {
+                    nickErrorText.style.opacity = 0;
+                    startGame('player');
+                } else {
+                    showNickError(check.reason);
+                }
+            })
+            .catch(function () {
+                startGame('player');
+            });
+    };
 
     btnS.onclick = function () {
         startGame('spectator');
     };
 
-    btn.onclick = function () {
-
-        // Checks if the nick is valid.
-        if (validNick()) {
-            nickErrorText.style.opacity = 0;
-            startGame('player');
-        } else {
-            nickErrorText.style.opacity = 1;
-        }
-    };
+    btn.onclick = tryStartPlayer;
 
     var settingsMenu = document.getElementById('settingsButton');
     var settings = document.getElementById('settings');
@@ -83,12 +115,7 @@ window.onload = function () {
         var key = e.which || e.keyCode;
 
         if (key === global.KEY_ENTER) {
-            if (validNick()) {
-                nickErrorText.style.opacity = 0;
-                startGame('player');
-            } else {
-                nickErrorText.style.opacity = 1;
-            }
+            tryStartPlayer();
         }
     });
 };
@@ -209,23 +236,11 @@ function setupSocket(socket) {
 
     socket.on('leaderboard', (data) => {
         leaderboard = data.leaderboard;
-        var status = '<span class="title">Classement</span>';
-        for (var i = 0; i < leaderboard.length; i++) {
-            status += '<br />';
-            if (leaderboard[i].id == player.id) {
-                if (leaderboard[i].name.length !== 0)
-                    status += '<span class="me">' + (i + 1) + '. ' + leaderboard[i].name + "</span>";
-                else
-                    status += '<span class="me">' + (i + 1) + ". Cellule anonyme</span>";
-            } else {
-                if (leaderboard[i].name.length !== 0)
-                    status += (i + 1) + '. ' + leaderboard[i].name;
-                else
-                    status += (i + 1) + '. Cellule anonyme';
-            }
-        }
-        //status += '<br />Players: ' + data.players;
-        document.getElementById('status').innerHTML = status;
+        warUI.renderLeaderboard(data, player.id, global.playerName);
+    });
+
+    socket.on('warState', (data) => {
+        warUI.handleWarState(data);
     });
 
     socket.on('serverMSG', function (data) {

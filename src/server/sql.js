@@ -47,6 +47,23 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
           console.log("Created chat_messages table");
         }
       });
+
+      // Résultats du mode War : une ligne par joueur et par round
+      db.run(`CREATE TABLE IF NOT EXISTS war_results (
+        tournament_id INTEGER,
+        round INTEGER,
+        rank INTEGER,
+        name TEXT,
+        mass INTEGER,
+        timestamp INTEGER
+      )`, (err) => {
+        if (err) {
+          console.error(err);
+        }
+        else {
+          console.log("Created war_results table");
+        }
+      });
     });
   }
 });
