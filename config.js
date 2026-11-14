@@ -7,8 +7,8 @@ module.exports = {
     limitSplit: 16,
     defaultPlayerMass: 10,
 	virus: {
-        fill: "#33ff33",
-        stroke: "#19D119",
+        fill: "#2a0f4a",
+        stroke: "#ff2aa1",
         strokeWidth: 20,
         defaultMass: {
             from: 100,

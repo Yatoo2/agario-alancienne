@@ -84,6 +84,14 @@ exports.findIndex = function (arr, id) {
     return -1;
 };
 
+// Palette néon « À LAN Cienne » : rose, magenta, violet, bleu, cyan, orange et or « sunset »
+const NEON_HUES = [330, 315, 295, 275, 255, 225, 200, 185, 170, 25, 45];
+
+exports.randomNeonHue = function () {
+    const base = NEON_HUES[Math.floor(Math.random() * NEON_HUES.length)];
+    return base + Math.round(Math.random() * 8 - 4);
+};
+
 exports.randomColor = function () {
     var color = '#' + ('00000' + (Math.random() * (1 << 24) | 0).toString(16)).slice(-6);
     var c = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);

@@ -162,19 +162,19 @@ class ChatClient {
     }
 
     toggleDarkMode() {
-        var LIGHT = '#f2fbff',
-            DARK = '#181818';
-        var LINELIGHT = '#000000',
-            LINEDARK = '#ffffff';
+        var LIGHT = '#071022',
+            DARK = '#000000';
+        var LINELIGHT = '#b04dff',
+            LINEDARK = '#2ad4ff';
 
         if (global.backgroundColor === LIGHT) {
             global.backgroundColor = DARK;
             global.lineColor = LINEDARK;
-            this.addSystemLine('Dark mode enabled.');
+            this.addSystemLine('Mode nuit noire activé.');
         } else {
             global.backgroundColor = LIGHT;
             global.lineColor = LINELIGHT;
-            this.addSystemLine('Dark mode disabled.');
+            this.addSystemLine('Mode néon activé.');
         }
     }
 

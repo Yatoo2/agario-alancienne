@@ -9,8 +9,8 @@ const drawRoundObject = (position, radius, graph) => {
 }
 
 const drawFood = (position, food, graph) => {
-    graph.fillStyle = 'hsl(' + food.hue + ', 100%, 50%)';
-    graph.strokeStyle = 'hsl(' + food.hue + ', 100%, 45%)';
+    graph.fillStyle = 'hsl(' + food.hue + ', 100%, 60%)';
+    graph.strokeStyle = 'hsl(' + food.hue + ', 100%, 70%)';
     graph.lineWidth = 0;
     drawRoundObject(position, food.radius, graph);
 };
@@ -80,6 +80,9 @@ const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
         graph.fillStyle = cell.color;
         graph.strokeStyle = cell.borderColor;
         graph.lineWidth = 6;
+        // Halo néon autour de la cellule
+        graph.shadowColor = cell.borderColor;
+        graph.shadowBlur = 25;
         if (cellTouchingBorders(cell, borders)) {
             // Asssemble the cell from lines
             drawCellWithLines(cell, borders, graph);
@@ -87,6 +90,7 @@ const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
             // Border corrections are not needed, the cell can be drawn as a circle
             drawRoundObject(cell, cell.radius, graph);
         }
+        graph.shadowBlur = 0;
 
         // Draw the name of the player
         let fontSize = Math.max(cell.radius / 3, 12);
@@ -114,7 +118,7 @@ const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
 const drawGrid = (global, player, screen, graph) => {
     graph.lineWidth = 1;
     graph.strokeStyle = global.lineColor;
-    graph.globalAlpha = 0.15;
+    graph.globalAlpha = 0.35;
     graph.beginPath();
 
     for (let x = -player.x; x < screen.width; x += screen.height / 18) {
@@ -132,8 +136,8 @@ const drawGrid = (global, player, screen, graph) => {
 };
 
 const drawBorder = (borders, graph) => {
-    graph.lineWidth = 1;
-    graph.strokeStyle = '#000000'
+    graph.lineWidth = 4;
+    graph.strokeStyle = '#ff2aa1'
     graph.beginPath()
     graph.moveTo(borders.left, borders.top);
     graph.lineTo(borders.right, borders.top);
@@ -144,12 +148,15 @@ const drawBorder = (borders, graph) => {
 };
 
 const drawErrorMessage = (message, graph, screen) => {
-    graph.fillStyle = '#333333';
+    graph.fillStyle = '#071022';
     graph.fillRect(0, 0, screen.width, screen.height);
     graph.textAlign = 'center';
-    graph.fillStyle = '#FFFFFF';
-    graph.font = 'bold 30px sans-serif';
+    graph.fillStyle = '#ff2aa1';
+    graph.shadowColor = '#ff2aa1';
+    graph.shadowBlur = 20;
+    graph.font = 'bold 36px sans-serif';
     graph.fillText(message, screen.width / 2, screen.height / 2);
+    graph.shadowBlur = 0;
 }
 
 module.exports = {

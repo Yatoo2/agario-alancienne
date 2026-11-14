@@ -11,7 +11,7 @@ class Food {
         this.y = position.y;
         this.radius = radius;
         this.mass = Math.random() + 2;
-        this.hue = Math.round(Math.random() * 360);
+        this.hue = util.randomNeonHue();
     }
 }
 

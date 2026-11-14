@@ -26,6 +26,7 @@ function startGame(type) {
 
     document.getElementById('startMenuWrapper').style.maxHeight = '0px';
     document.getElementById('gameAreaWrapper').style.opacity = 1;
+    document.getElementById('menuBackground').style.opacity = 0;
     if (!socket) {
         socket = io({ query: "type=" + type });
         setupSocket(socket);
@@ -151,7 +152,7 @@ $("#split").click(function () {
 function handleDisconnect() {
     socket.close();
     if (!global.kicked) { // We have a more specific error message 
-        render.drawErrorMessage('Disconnected!', graph, global.screen);
+        render.drawErrorMessage('Déconnecté !', graph, global.screen);
     }
 }
 
@@ -191,36 +192,36 @@ function setupSocket(socket) {
     });
 
     socket.on('playerDied', (data) => {
-        const player = isUnnamedCell(data.playerEatenName) ? 'An unnamed cell' : data.playerEatenName;
-        //const killer = isUnnamedCell(data.playerWhoAtePlayerName) ? 'An unnamed cell' : data.playerWhoAtePlayerName;
+        const player = isUnnamedCell(data.playerEatenName) ? 'Cellule anonyme' : data.playerEatenName;
+        //const killer = isUnnamedCell(data.playerWhoAtePlayerName) ? 'Cellule anonyme' : data.playerWhoAtePlayerName;
 
         //window.chat.addSystemLine('{GAME} - <b>' + (player) + '</b> was eaten by <b>' + (killer) + '</b>');
         window.chat.addSystemLine('{GAME} - <b>' + (player) + '</b> was eaten');
     });
 
     socket.on('playerDisconnect', (data) => {
-        window.chat.addSystemLine('{GAME} - <b>' + (isUnnamedCell(data.name) ? 'An unnamed cell' : data.name) + '</b> disconnected.');
+        window.chat.addSystemLine('{GAME} - <b>' + (isUnnamedCell(data.name) ? 'Cellule anonyme' : data.name) + '</b> disconnected.');
     });
 
     socket.on('playerJoin', (data) => {
-        window.chat.addSystemLine('{GAME} - <b>' + (isUnnamedCell(data.name) ? 'An unnamed cell' : data.name) + '</b> joined.');
+        window.chat.addSystemLine('{GAME} - <b>' + (isUnnamedCell(data.name) ? 'Cellule anonyme' : data.name) + '</b> joined.');
     });
 
     socket.on('leaderboard', (data) => {
         leaderboard = data.leaderboard;
-        var status = '<span class="title">Leaderboard</span>';
+        var status = '<span class="title">Classement</span>';
         for (var i = 0; i < leaderboard.length; i++) {
             status += '<br />';
             if (leaderboard[i].id == player.id) {
                 if (leaderboard[i].name.length !== 0)
                     status += '<span class="me">' + (i + 1) + '. ' + leaderboard[i].name + "</span>";
                 else
-                    status += '<span class="me">' + (i + 1) + ". An unnamed cell</span>";
+                    status += '<span class="me">' + (i + 1) + ". Cellule anonyme</span>";
             } else {
                 if (leaderboard[i].name.length !== 0)
                     status += (i + 1) + '. ' + leaderboard[i].name;
                 else
-                    status += (i + 1) + '. An unnamed cell';
+                    status += (i + 1) + '. Cellule anonyme';
             }
         }
         //status += '<br />Players: ' + data.players;
@@ -254,10 +255,11 @@ function setupSocket(socket) {
     // Death.
     socket.on('RIP', function () {
         global.gameStart = false;
-        render.drawErrorMessage('You died!', graph, global.screen);
+        render.drawErrorMessage('GAME OVER — Tu t\'es fait manger !', graph, global.screen);
         window.setTimeout(() => {
             document.getElementById('gameAreaWrapper').style.opacity = 0;
             document.getElementById('startMenuWrapper').style.maxHeight = '1000px';
+            document.getElementById('menuBackground').style.opacity = 1;
             if (global.animLoopHandle) {
                 window.cancelAnimationFrame(global.animLoopHandle);
                 global.animLoopHandle = undefined;
@@ -269,10 +271,10 @@ function setupSocket(socket) {
         global.gameStart = false;
         global.kicked = true;
         if (reason !== '') {
-            render.drawErrorMessage('You were kicked for: ' + reason, graph, global.screen);
+            render.drawErrorMessage('Tu as été exclu : ' + reason, graph, global.screen);
         }
         else {
-            render.drawErrorMessage('You were kicked!', graph, global.screen);
+            render.drawErrorMessage('Tu as été exclu !', graph, global.screen);
         }
         socket.close();
     });
@@ -339,8 +341,8 @@ function gameLoop() {
 
         var cellsToDraw = [];
         for (var i = 0; i < users.length; i++) {
-            let color = 'hsl(' + users[i].hue + ', 100%, 50%)';
-            let borderColor = 'hsl(' + users[i].hue + ', 100%, 45%)';
+            let color = 'hsl(' + users[i].hue + ', 90%, 45%)';
+            let borderColor = 'hsl(' + users[i].hue + ', 100%, 70%)';
             for (var j = 0; j < users[i].cells.length; j++) {
                 cellsToDraw.push({
                     color: color,
